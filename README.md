@@ -68,16 +68,16 @@ Java 源码的关系：
 | 数组   | 数组存储栈中的元素，栈顶指针指向数组的最后一个元素。 | 访问速度快      | 栈的大小固定 |
 | 链表   | 链表存储栈中的元素，栈顶指针指向链表的头节点。    | 栈的大小可以动态扩展 | 访问速度慢  |
 
-我们使用链表来实现栈，链表的每个节点包含一个数据域和一个指向下一个节点的指针。源码见：[Stack.java](./src/main/java/data/structure/Stack.java)
+我们使用链表来实现栈，链表的每个节点包含一个数据域和一个指向下一个节点的指针。源码见：[MiniStack.java](./src/main/java/data/structure/MiniStack.java)
 
 为什么要使用栈呢？因为 Java 虚拟机的字节码指令集是基于栈的，所有的操作都是在操作数栈上进行的。
 
 #### 栈虚拟机（Stack Virtual Machine）
 
-接下来我们来实现一个可以执行字节码指令的栈虚拟机，源码见：[StackVM.java](./src/main/java/mini/StackVM.java)
+接下来我们来实现一个可以执行字节码指令的栈虚拟机，源码见：[MiniStackVM.java](./src/main/java/mini/MiniStackVM.java)
 
 另外我们还在单元测试中模拟了 `HelloStackVM` 类的 `main`
-方法的字节码指令集，来验证我们实现的栈虚拟机是否正确。源码见：[StackVMTest.java](./src/test/java/mini/StackVMTest.java)
+方法的字节码指令集，来验证我们实现的栈虚拟机是否正确。源码见：[MiniStackVMTest.java](./src/test/java/mini/MiniStackVMTest.java)
 
 ## 二、类文件解析
 

@@ -40,7 +40,7 @@ public class StackVM {
         }
         String className = command.substring(0, 1).toUpperCase() + command.substring(1) + "Instruction";
         try {
-            Class<?> clazz = Class.forName("site.snewbie.mini.StackVM$" + className);
+            Class<?> clazz = Class.forName("mini.StackVM$" + className);
             Instruction instructionInstance = (Instruction) clazz.getDeclaredConstructor().newInstance();
             instructionInstance.execute(parts);
         } catch (Exception e) {

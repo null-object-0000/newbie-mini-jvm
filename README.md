@@ -2,7 +2,9 @@
 
 此项目将试图让工作多年的 Java 程序员通过自己动手写 Java 虚拟机的方式深入理解 JVM 原理。本人在开启这个项目时对于 JVM 也无深入了解，希望在不久的将来可以通过此种方式有所学习。
 
-本人将主要依照 [尚硅谷宋红康JVM全套教程（详解java虚拟机）](https://www.bilibili.com/video/BV1PJ411n7xZ) 视频为基础，并结合 [《自己动手写Java虚拟机》](https://github.com/zxh0/jvmgo-book) 来逐步学习与完善。
+本人将主要依照 [尚硅谷宋红康JVM全套教程（详解java虚拟机）](https://www.bilibili.com/video/BV1PJ411n7xZ) 视频为基础，并结合 [《自己动手写Java虚拟机》](https://github.com/zxh0/jvmgo-book) 来逐步学习与完善。下面是一些编码约定，了解过后我们就可以开始动手了：
+- 使用 Java 21 编写代码，JUnit 5 编写单元测试，Maven 作为构建工具
+- 所有的核心类都以 `mini` 开头，表示这是一个迷你版的 JVM
 
 ## 一、前置知识准备
 

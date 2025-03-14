@@ -6,12 +6,12 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class StackVMTest {
+public class MiniStackVMTest {
 
     @BeforeEach
     public void setUp() {
         // 清空局部变量表和栈
-        StackVM.INSTANCE.reset();
+        MiniStackVM.INSTANCE.reset();
     }
 
     /**
@@ -33,10 +33,10 @@ public class StackVMTest {
         };
 
         for (String instruction : instructions) {
-            StackVM.INSTANCE.execute(instruction);
+            MiniStackVM.INSTANCE.execute(instruction);
         }
 
         // 验证局部变量表中的值
-        assertEquals(7, StackVM.INSTANCE.getLocalVariable(3));
+        assertEquals(7, MiniStackVM.INSTANCE.getLocalVariable(3));
     }
 }

@@ -1,6 +1,6 @@
 package mini;
 
-import data.structure.Stack;
+import data.structure.MiniStack;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -8,20 +8,20 @@ import java.util.Map;
 /**
  * 模拟栈式虚拟机执行字节码指令
  */
-public class StackVM {
+public class MiniStackVM {
     /**
      * 基于栈的指令
      */
-    private final static Stack<Integer> INSTRUCTION_STACK = new Stack<>();
+    private final static MiniStack<Integer> INSTRUCTION_STACK = new MiniStack<>();
     /**
      * 局部变量表
      */
     private final static Map<Integer, Integer> LOCAL_VARIABLES = new HashMap<>();
 
-    private StackVM() {
+    private MiniStackVM() {
     }
 
-    public final static StackVM INSTANCE = new StackVM();
+    public final static MiniStackVM INSTANCE = new MiniStackVM();
 
     public Integer getLocalVariable(int index) {
         return LOCAL_VARIABLES.get(index);
@@ -40,7 +40,8 @@ public class StackVM {
         }
         String className = command.substring(0, 1).toUpperCase() + command.substring(1) + "Instruction";
         try {
-            Class<?> clazz = Class.forName("mini.StackVM$" + className);
+            // 为了便于测试和维护，指令类放在当前类的内部并通过反射调用
+            Class<?> clazz = Class.forName(String.format("%s.%s$%s", this.getClass().getPackageName(), this.getClass().getSimpleName(), className));
             Instruction instructionInstance = (Instruction) clazz.getDeclaredConstructor().newInstance();
             instructionInstance.execute(parts);
         } catch (Exception e) {

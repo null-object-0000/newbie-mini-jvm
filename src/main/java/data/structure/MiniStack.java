@@ -1,9 +1,9 @@
 package data.structure;
 
-public class Stack<T> {
+public class MiniStack<T> {
     private Node<T> top;
 
-    public Stack() {
+    public MiniStack() {
         this.top = null;
     }
 

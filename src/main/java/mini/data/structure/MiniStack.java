@@ -1,4 +1,4 @@
-package data.structure;
+package mini.data.structure;
 
 public class MiniStack<T> {
     private Node<T> top;

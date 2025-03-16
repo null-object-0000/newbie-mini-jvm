@@ -11,6 +11,7 @@
 
 ### 1. JVM 体系结构总览
 > Java 是一种跨平台的编程语言，JVM 是 Java 的运行时环境，负责执行 Java 字节码。JVM 使得 Java 程序可以在不同的平台上运行，而不需要重新编译。
+> JVM 实现有很多种，最常用的是 HotSpot JVM（Oracle JDK 和 OpenJDK 使用的 JVM），还有其他实现如 OpenJ9、GraalVM 等。
 
 #### JVM 体系结构
 - 类加载器（Class Loader）：负责加载 Java 类文件，并将其转换为 JVM 可以理解的格式。
@@ -77,7 +78,7 @@ Java 源码的关系：
 | 数组     | 通过索引直接访问元素，无需遍历链表节点 | 内存连续，CPU 缓存友好 | 扩容需复制数据 |
 | 链表     | 动态分配内存，插入/删除效率高          | 无固定大小限制         | 内存碎片化     |
 
-我们使用链表来实现栈，链表的每个节点包含一个数据域和一个指向下一个节点的指针。源码见：[MiniStack.java](./src/main/java/data/structure/MiniStack.java)
+我们使用链表来实现栈，链表的每个节点包含一个数据域和一个指向下一个节点的指针。源码见：[MiniStack.java](src/main/java/mini/data/structure/MiniStack.java)
 
 </details>
 

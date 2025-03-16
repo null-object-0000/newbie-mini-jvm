@@ -29,14 +29,41 @@ public class MiniStackVMTest {
                 "iload_2",
                 "iadd",
                 "istore_3",
+                "getstatic",
+                "iload_3",
+                "invokedynamic",
+                "invokevirtual",
                 "return"
         };
 
+        int pc = 0;
         for (String instruction : instructions) {
-            MiniStackVM.INSTANCE.execute(instruction);
+            MiniStackVM.INSTANCE.execute(pc++, instruction);
         }
 
         // 验证局部变量表中的值
         assertEquals(7, MiniStackVM.INSTANCE.getLocalVariable(3));
+    }
+
+    @Test
+    public void full() {
+        String[] instructions = {
+                "bipush",
+                "putstatic",
+                "iconst_5",
+                "getstatic",
+                "iadd",
+                "istore_0",
+                "getstatic",
+                "iload_0",
+                "invokedynamic",
+                "invokevirtual",
+                "return",
+        };
+
+        int pc = 0;
+        for (String instruction : instructions) {
+            MiniStackVM.INSTANCE.execute(pc++, instruction);
+        }
     }
 }

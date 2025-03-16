@@ -11,5 +11,13 @@ import java.util.Map;
  */
 public class MiniMetaSpace {
     public final static Map<String, MiniClass> CLASS_CACHE = new HashMap<>();
-    public static MiniConstantPool constantPool;
+    private static Map<MiniClass, MiniConstantPool> constantPool = new HashMap<>();
+
+    public static MiniConstantPool getConstantPool(MiniClass clazz) {
+        return constantPool.get(clazz);
+    }
+
+    public static void putConstantPool(MiniClass clazz, MiniConstantPool pool) {
+        constantPool.put(clazz, pool);
+    }
 }

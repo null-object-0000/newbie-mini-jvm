@@ -3,11 +3,16 @@ package demo;
 public class HelloStackVM {
     private static final int i = 5;
     private static final int j;
+    private static final int k;
 
     static {
         j = 10;
-        int k = i + j;
+        k = i + j;
         System.out.println("Hello JVM (static)：" + k);
+    }
+
+    public HelloStackVM() {
+
     }
 
     public static void main(String[] args) {

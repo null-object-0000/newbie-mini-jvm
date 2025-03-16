@@ -1,6 +1,7 @@
 package mini.cl;
 
 import cn.hutool.core.io.FileUtil;
+import cn.hutool.system.SystemUtil;
 import mini.data.area.MiniMetaSpace;
 
 import java.io.ByteArrayInputStream;
@@ -8,9 +9,11 @@ import java.io.DataInputStream;
 import java.io.IOException;
 
 public class MiniBootstrapClassLoader {
-    private final static String CLASS_PATH = "C:\\Users\\nicha\\Code\\newbie-mini-jvm\\src\\main\\java\\demo\\";
-
     public static MiniClass loadClass(String className) throws IOException {
+        /* TODO
+            JVM 在判定两个 class 是否相同时，不仅要判断两个类名是否相同，而且要判断是否由同一个类加载器实例加载的。
+            只有两者同时满足的情况下，JVM 才认为这两个 class 是相同的。
+         */
         if (MiniMetaSpace.CLASS_CACHE.containsKey(className)) {
             return MiniMetaSpace.CLASS_CACHE.get(className);
         }
@@ -27,6 +30,7 @@ public class MiniBootstrapClassLoader {
         clazz._linking_resolve();
 
         // 第三阶段：初始化 Initialization
+        _initialization(clazz);
 
         MiniMetaSpace.CLASS_CACHE.put(className, clazz);
         return clazz;
@@ -39,15 +43,17 @@ public class MiniBootstrapClassLoader {
      */
     private static MiniClass _load(String className) {
         String fileName = className.replace(".", "/") + ".class";
-        byte[] classData = FileUtil.readBytes(CLASS_PATH + fileName);
+        byte[] classData = FileUtil.readBytes(SystemUtil.getUserInfo().getCurrentDir() + "\\src\\main\\java\\demo\\" + fileName);
         DataInputStream input = new DataInputStream(new ByteArrayInputStream(classData));
         return new MiniClass(input);
     }
 
-    private static void readAndCheckMagic(DataInputStream input) throws IOException {
-        int magic = input.readInt();
-        if (magic != 0xCAFEBABE) {
-            throw new IOException("Magic number incorrect! Expect 0xCAFEBABE but was " + Integer.toHexString(magic));
-        }
+    private static void _initialization(MiniClass clazz) {
+        // 先执行 <clinit> 方法
+        MiniClass.MiniMemberInfo clinit = clazz.getMethod("<clinit>");
+        if (clinit == null) return;
+        MethodCaller.call(clazz, clinit);
     }
+
+
 }

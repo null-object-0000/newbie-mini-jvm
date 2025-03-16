@@ -1,10 +1,12 @@
 package mini;
 
-import mini.data.area.MiniMetaSpace;
+import mini.cl.MethodCaller;
+import mini.cl.MiniBootstrapClassLoader;
+import mini.cl.MiniClass;
+import mini.cl.MiniStackFrame;
 import mini.data.structure.MiniStack;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.io.IOException;
 
 /**
  * 模拟栈式虚拟机执行字节码指令
@@ -14,37 +16,29 @@ public class MiniStackVM {
      * 基于栈的指令
      */
     private final static MiniStack<Integer> INSTRUCTION_STACK = new MiniStack<>();
-    /**
-     * 局部变量表
-     */
-    private final static Map<Integer, Integer> LOCAL_VARIABLES = new HashMap<>();
 
     private MiniStackVM() {
     }
 
     public final static MiniStackVM INSTANCE = new MiniStackVM();
 
-    public Integer getLocalVariable(int index) {
-        return LOCAL_VARIABLES.get(index);
-    }
-
     /**
      * 执行指令
      */
-    public void execute(int pc, String instruction) {
-        String[] parts = instruction.split("_");
-        String command = parts[0];
+    public void execute(MiniStackFrame stackFrame, int pc, String instruction) {
+        String opcode = instruction.split(" ")[0];
 
-        // 通过反射调用对应的指令类，如果是 i 开头的指令，去掉 i 前缀
-        if (command.startsWith("i")) {
-            command = command.substring(1);
+        // 如果指令携带 _%d 则去除末尾这部分
+        if (opcode.contains("_")) {
+            opcode = opcode.substring(0, opcode.indexOf("_"));
         }
-        String className = command.substring(0, 1).toUpperCase() + command.substring(1) + "Instruction";
+
+        String className = opcode.substring(0, 1).toUpperCase() + opcode.substring(1) + "Instruction";
         try {
             // 为了便于测试和维护，指令类放在当前类的内部并通过反射调用
             Class<?> clazz = Class.forName(String.format("%s.%s$%s", this.getClass().getPackageName(), this.getClass().getSimpleName(), className));
             Instruction instructionInstance = (Instruction) clazz.getDeclaredConstructor().newInstance();
-            instructionInstance.execute(pc, parts);
+            instructionInstance.execute(stackFrame, pc, instruction);
         } catch (Exception e) {
             System.out.printf("    %4d: [error] 执行 %s 指令失败: %s%n", pc, instruction, e.getMessage());
         }
@@ -52,7 +46,6 @@ public class MiniStackVM {
 
     public void reset() {
         INSTRUCTION_STACK.clear();
-        LOCAL_VARIABLES.clear();
     }
 
     /**
@@ -64,11 +57,8 @@ public class MiniStackVM {
     public interface Instruction {
         /**
          * 执行指令
-         *
-         * @param pc
-         * @param parts 指令的各个部分
          */
-        void execute(int pc, String[] parts);
+        void execute(MiniStackFrame stackFrame, int pc, String instruction) throws IOException;
     }
 
     /**
@@ -77,7 +67,7 @@ public class MiniStackVM {
      */
     public static class NopInstruction implements Instruction {
         @Override
-        public void execute(int pc, String[] parts) {
+        public void execute(MiniStackFrame stackFrame, int pc, String instruction) {
             System.out.printf("    %4d: [nop] 执行空指令%n", pc);
         }
     }
@@ -88,10 +78,22 @@ public class MiniStackVM {
      */
     public static class BipushInstruction implements Instruction {
         @Override
-        public void execute(int pc, String[] parts) {
-            int value = Integer.parseInt(parts[1]);
+        public void execute(MiniStackFrame stackFrame, int pc, String instruction) {
+            int value = Integer.parseInt(instruction.split(" ")[1]);
             INSTRUCTION_STACK.push(value);
             System.out.printf("    %4d: [bipush] 将常量 %d 压入栈%n", pc, value);
+        }
+    }
+
+    /**
+     * aconst_null
+     * 将 null 值压入栈
+     */
+    public static class AconstInstruction implements Instruction {
+        @Override
+        public void execute(MiniStackFrame stackFrame, int pc, String instruction) {
+            INSTRUCTION_STACK.push(null);
+            System.out.printf("    %4d: [aconst_null] 将 null 值压入栈%n", pc);
         }
     }
 
@@ -99,10 +101,11 @@ public class MiniStackVM {
      * iconst
      * 将常量压入栈
      */
-    public static class ConstInstruction implements Instruction {
+    public static class IconstInstruction implements Instruction {
         @Override
-        public void execute(int pc, String[] parts) {
-            int constant = Integer.parseInt(parts[1]);
+        public void execute(MiniStackFrame stackFrame, int pc, String instruction) {
+            // iconst_1
+            int constant = Integer.parseInt(instruction.substring(7));
             INSTRUCTION_STACK.push(constant);
             System.out.printf("    %4d: [iconst] 将常量 %s 压入栈%n", pc, constant);
         }
@@ -112,27 +115,44 @@ public class MiniStackVM {
      * istore
      * 将栈顶值存储到局部变量
      */
-    public static class StoreInstruction implements Instruction {
+    public static class IstoreInstruction implements Instruction {
         @Override
-        public void execute(int pc, String[] parts) {
-            int index = Integer.parseInt(parts[1]);
+        public void execute(MiniStackFrame stackFrame, int pc, String instruction) {
+            // istore_1
+            int index = Integer.parseInt(instruction.substring(7));
             int value = INSTRUCTION_STACK.pop();
-            LOCAL_VARIABLES.put(index, value);
+            stackFrame.getLocalVariables().put(index, value);
             System.out.printf("    %4d: [istore] 将栈顶值 %d 存储到局部变量 %d%n", pc, value, index);
         }
     }
 
     /**
      * iload
-     * 将局部变量压入栈
+     * 用于将局部变量表中指定索引的int类型值压入操作数栈顶
      */
-    public static class LoadInstruction implements Instruction {
+    public static class IloadInstruction implements Instruction {
         @Override
-        public void execute(int pc, String[] parts) {
-            int loadIndex = Integer.parseInt(parts[1]);
-            Integer loadValue = LOCAL_VARIABLES.get(loadIndex);
+        public void execute(MiniStackFrame stackFrame, int pc, String instruction) {
+            // iload_1
+            int loadIndex = Integer.parseInt(instruction.substring(6));
+            Integer loadValue = stackFrame.getLocalVariables().get(loadIndex);
             INSTRUCTION_STACK.push(loadValue);
             System.out.printf("    %4d: [iload] 将局部变量 " + loadIndex + " 的值 " + loadValue + " 压入栈%n", pc);
+        }
+    }
+
+    /**
+     * aload
+     * 用于将局部变量表中指定索引的引用类型值（如对象引用）压入操作数栈顶
+     */
+    public static class AloadInstruction implements Instruction {
+        @Override
+        public void execute(MiniStackFrame stackFrame, int pc, String instruction) {
+            // aload_1
+            int loadIndex = Integer.parseInt(instruction.substring(6));
+            Integer loadValue = stackFrame.getLocalVariables().get(loadIndex);
+            INSTRUCTION_STACK.push(loadValue);
+            System.out.printf("    %4d: [aload] 将局部变量 " + loadIndex + " 的值 " + loadValue + " 压入栈%n", pc);
         }
     }
 
@@ -142,11 +162,14 @@ public class MiniStackVM {
      */
     public static class GetstaticInstruction implements Instruction {
         @Override
-        public void execute(int pc, String[] parts) {
-            int index = Integer.parseInt(parts[1]);
-            Integer value = (Integer) MiniMetaSpace.constantPool.getConstant(index);
+        public void execute(MiniStackFrame stackFrame, int pc, String instruction) {
+            String[] field = instruction.split(" ")[1].split(":");
+            String fieldName = field[0];
+            String fieldType = field[1];
+
+            Integer value = (Integer) stackFrame.getClazz().getStaticVariables().get(fieldName);
             INSTRUCTION_STACK.push(value);
-            System.out.printf("    %4d: [getstatic] 将静态变量 " + index + " 的值 " + value + " 压入栈%n", pc);
+            System.out.printf("    %4d: [getstatic] 将静态变量 " + fieldName + " 的值 " + value + " 压入栈%n", pc);
         }
     }
 
@@ -156,11 +179,13 @@ public class MiniStackVM {
      */
     public static class PutstaticInstruction implements Instruction {
         @Override
-        public void execute(int pc, String[] parts) {
-            int index = Integer.parseInt(parts[1]);
+        public void execute(MiniStackFrame stackFrame, int pc, String instruction) {
+            String[] field = instruction.split(" ")[1].split(":");
+            String fieldName = field[0];
+            String fieldType = field[1];
             int value = INSTRUCTION_STACK.pop();
-            MiniMetaSpace.constantPool.setConstant(index, value);
-            System.out.printf("    %4d: [putstatic] 将栈顶值 %d 存储到静态变量 %d%n", pc, value, index);
+            stackFrame.getClazz().getStaticVariables().put(fieldName, value);
+            System.out.printf("    %4d: [putstatic] 将栈顶值 %d 存储到静态变量 %s%n", pc, value, fieldName);
         }
     }
 
@@ -168,9 +193,9 @@ public class MiniStackVM {
      * iadd
      * 弹出栈顶两个值相加，结果压入栈
      */
-    public static class AddInstruction implements Instruction {
+    public static class IaddInstruction implements Instruction {
         @Override
-        public void execute(int pc, String[] parts) {
+        public void execute(MiniStackFrame stackFrame, int pc, String instruction) {
             int value1 = INSTRUCTION_STACK.pop();
             int value2 = INSTRUCTION_STACK.pop();
             int result = value1 + value2;
@@ -180,12 +205,31 @@ public class MiniStackVM {
     }
 
     /**
+     * invokespecial
+     * 调用实例初始化方法
+     */
+    public static class InvokespecialInstruction implements Instruction {
+        @Override
+        public void execute(MiniStackFrame stackFrame, int pc, String instruction) throws IOException {
+            String className = instruction.split(" ")[1].split("[.]")[0];
+            String methodName = instruction.split(" ")[1].split("[.]")[1];
+            String returnType = instruction.split(" ")[2];
+
+            MiniClass clazz = MiniBootstrapClassLoader.loadClass(className);
+            MiniClass.MiniMemberInfo method = clazz.getMethod(methodName);
+            MethodCaller.call(clazz, method);
+
+            System.out.printf("    %4d: [invokespecial] 调用实例初始化方法 %s.%s %s%n", pc, className, methodName, returnType);
+        }
+    }
+
+    /**
      * return
      * 返回指令，结束执行
      */
     public static class ReturnInstruction implements Instruction {
         @Override
-        public void execute(int pc, String[] parts) {
+        public void execute(MiniStackFrame stackFrame, int pc, String instruction) {
             System.out.printf("    %4d: [return] 执行结束%n", pc);
         }
     }

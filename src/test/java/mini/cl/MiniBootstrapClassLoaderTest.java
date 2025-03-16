@@ -13,7 +13,14 @@ public class MiniBootstrapClassLoaderTest {
         MiniClass clazz = MiniBootstrapClassLoader.loadClass("HelloStackVM");
         // 验证类名
         assertEquals("demo.HelloStackVM", clazz.getName());
-        System.out.println(clazz.getSuperClass());
+        assertEquals(15, (Integer) clazz.getStaticVariables().get("k"));
+
+        MiniClass.MiniMemberInfo init = clazz.getMethod("<init>");
+        MethodCaller.call(clazz, init);
+
+        MiniClass.MiniMemberInfo main = clazz.getMethod("main");
+        MethodCaller.call(clazz, main);
+
     }
 
 }

@@ -3,7 +3,6 @@ package mini.cl;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import mini.MiniStackVM;
 import mini.data.area.MiniConstantPool;
 import mini.data.area.MiniMetaSpace;
 
@@ -11,6 +10,8 @@ import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * ClassFile {
@@ -35,9 +36,12 @@ import java.util.Arrays;
  */
 public class MiniClass {
     @Getter
-    private DataInputStream input;
+    private final DataInputStream input;
     @Getter
     private MiniClassLoader classLoader;
+
+    @Getter
+    private final Map<String, Object> staticVariables = new HashMap<>();
 
     private int magic; // 魔数，固定值0xCAFEBABE
     private int minorVersion; // 次版本号
@@ -61,12 +65,12 @@ public class MiniClass {
     }
 
     public String getName() {
-        String name = (String) MiniMetaSpace.constantPool.getConstant((Integer) MiniMetaSpace.constantPool.getConstant(thisClass));
+        String name = (String) MiniMetaSpace.getConstantPool(this).getConstant((Integer) MiniMetaSpace.getConstantPool(this).getConstant(thisClass));
         return name.replace("/", "."); // 替换斜杠为点
     }
 
     public MiniClass getSuperClass() {
-        String name = (String) MiniMetaSpace.constantPool.getConstant((Integer) MiniMetaSpace.constantPool.getConstant(superClass));
+        String name = (String) MiniMetaSpace.getConstantPool(this).getConstant((Integer) MiniMetaSpace.getConstantPool(this).getConstant(superClass));
         // TODO: 基于 MiniBootstrapClassLoader 通过类名获取类对象
         return null;
     }
@@ -74,19 +78,28 @@ public class MiniClass {
     public MiniClass[] getInterfaces() {
         MiniClass[] interfaceClasses = new MiniClass[interfaces.length];
         for (int i = 0; i < interfaces.length; i++) {
-            String interfaceName = (String) MiniMetaSpace.constantPool.getConstant(interfaces[i]);
+            String interfaceName = (String) MiniMetaSpace.getConstantPool(this).getConstant(interfaces[i]);
             // TODO: 基于 MiniBootstrapClassLoader 通过类名获取类对象
             interfaceClasses[i] = null;
         }
         return interfaceClasses;
     }
 
+    /**
+     * 1. 文件格式验证（Class 文件格式检查）
+     * 2. 元数据验证（字节码语义检查）
+     * 3. 字节码验证（程序语义检查）
+     * 4. 符号引用验证（类的正确性检查）
+     * https://javaguide.cn/java/jvm/class-loading-process.html#%E9%AA%8C%E8%AF%81
+     */
     public MiniClass _linking_verify() throws IOException {
+        System.out.println("Verify");
+
         this.readAndCheckMagic();
         this.readAndCheckVersion();
 
         // 读取常量池
-        MiniMetaSpace.constantPool = MiniConstantPool.read(input);
+        MiniMetaSpace.putConstantPool(this, MiniConstantPool.read(input));
 
         // 读取访问标志
         this.accessFlags = input.readUnsignedShort();
@@ -117,132 +130,29 @@ public class MiniClass {
     }
 
     public MiniClass _linking_prepare() {
-        // 先执行 <clinit> 方法
-        MiniClass.MiniMemberInfo clinit = Arrays.stream(this.getMethods())
-                .filter(m -> m.getName().equals("<clinit>"))
-                .findFirst().orElseThrow();
+        System.out.println("Prepare: " + this.getName());
 
-        MiniClass.MiniCodeAttribute codeAttribute = Arrays.stream(clinit.getAttributes())
-                .filter(a -> a instanceof MiniClass.MiniCodeAttribute)
-                .map(a -> (MiniClass.MiniCodeAttribute) a)
-                .findFirst().orElseThrow();
-
-        System.out.println("static {};\n    Code:");
-
-        // 解析字节码指令
-        byte[] code = codeAttribute.getCode();
-        // 读取指令
-        int pc = 0;
-        /* https://www.cnblogs.com/longjee/p/8675771.html */
-        while (pc < code.length) {
-            int oldPc = pc;
-            byte opcode = code[pc++];
-
-            switch (opcode) {
-                case 0x00: // nop
-                    MiniStackVM.INSTANCE.execute(oldPc, "nop");
-                    break;
-                case 0x01: // aconst_null
-                    MiniStackVM.INSTANCE.execute(oldPc, "aconst_null");
-                    break;
-                case 0x02: // iconst_m1
-                    MiniStackVM.INSTANCE.execute(oldPc, "iconst_m1");
-                    break;
-                case 0x03: // iconst_0
-                case 0x04: // iconst_1
-                case 0x05: // iconst_2
-                case 0x06: // iconst_3
-                case 0x07: // iconst_4
-                case 0x08: // iconst_5
-                    String instruction = "iconst_" + (opcode - 3);
-                    MiniStackVM.INSTANCE.execute(oldPc, instruction);
-                    break;
-                case 0x10: // bipush
-                    instruction = "bipush_" + code[pc++];
-                    MiniStackVM.INSTANCE.execute(oldPc, instruction);
-                    break;
-                case 0x2A: // aload_0
-                case 0x2B: // aload_1
-                case 0x2C: // aload_2
-                case 0x2D: // aload_3
-                    instruction = "aload_" + (opcode - 42);
-                    MiniStackVM.INSTANCE.execute(oldPc, instruction);
-                    break;
-                case 0x1A: // iload_0
-                case 0x1B: // iload_1
-                case 0x1C: // iload_2
-                case 0x1D: // iload_3
-                    instruction = "iload_" + (opcode - 26);
-                    MiniStackVM.INSTANCE.execute(oldPc, instruction);
-                    break;
-                /* 对象操作指令 */
-                case (byte) 0xB2: // getstatic
-                case (byte) 0xB3: // putstatic
-                    // 读取常量池索引
-                    int index = ((code[pc] & 0xFF) << 8) | (code[pc + 1] & 0xFF);
-                    pc += 2;
-                    String instructionName = opcode == (byte) 0xB2 ? "getstatic" : "putstatic";
-
-                    MiniStackVM.INSTANCE.execute(oldPc, instructionName + "_" + index);
-                    break;
-                case 0x60: // iadd
-                    MiniStackVM.INSTANCE.execute(oldPc, "iadd");
-                    break;
-                case 0x3B: // istore_0
-                case 0x3C: // istore_1
-                case 0x3D: // istore_2
-                case 0x3E: // istore_3
-                    instruction = "istore_" + (opcode - 59);
-                    MiniStackVM.INSTANCE.execute(oldPc, instruction);
-                    break;
-                case (byte) 0xB6: // invokevirtual
-                    // 读取常量池索引
-                    index = ((code[pc] & 0xFF) << 8) | (code[pc + 1] & 0xFF);
-                    pc += 2;
-                    // 读取常量池中的值（left:right）
-                    Object value = MiniMetaSpace.constantPool.getConstant(index);
-                    Integer classIndex = (Integer) getLeft(value);
-                    String className = (String) MiniMetaSpace.constantPool.getConstant(classIndex);
-                    Object field = getRight(value);
-                    Object fieldName = getLeft(field);
-                    Object fieldValue = getRight(field);
-
-                    // 打印结果
-                    System.out.printf("    %4d: invokevirtual %s.%s %s\n", oldPc, className, fieldName, fieldValue);
-                    break;
-                case (byte) 0xB1: // return
-                    MiniStackVM.INSTANCE.execute(oldPc, "return");
-                    break;
-                case (byte) 0xBA: // invokedynamic
-                    index = ((code[pc] & 0xFF) << 8) | (code[pc + 1] & 0xFF);
-                    pc += 2;
-                    value = MiniMetaSpace.constantPool.getConstant(index);
-                    Object left = this.getLeft(value);
-                    Object right = this.getRight(value);
-
-                    Object leftSubLeft = this.getLeft(left);
-                    Object leftSubRight = this.getRight(left);
-
-                    Object rightSubLeft = this.getLeft(right);
-                    Object rightSubRight = this.getRight(right);
-
-                    System.out.printf("    %4d: invokedynamic %s:%s %s:%s\n", oldPc, MiniMetaSpace.constantPool.getConstant((Integer) leftSubLeft), leftSubRight, rightSubLeft, rightSubRight);
-                    break;
-                default:
-                    System.out.printf("Unknown instruction: 0x%02X\n", opcode);
+        for (MiniMemberInfo field : fields) {
+            // 识别是否是静态变量
+            int accessFlags = field.getAccessFlags();
+            if ((accessFlags & 0x0008) != 0) {
+                String descriptor = field.getDescriptor();
+                switch (descriptor) {
+                    case "I":
+                        System.out.println("    " + field.getName() + " = 0");
+                        this.staticVariables.put(field.getName(), 0);
+                        break;
+                    default:
+                        System.err.println("Warning: Unrecognized field descriptor: " + descriptor);
+                        break;
+                }
             }
         }
-
         return this;
     }
 
     public MiniClass _linking_resolve() {
-        return this;
-    }
-
-    public MiniClass parse() throws IOException {
-        this._linking_verify();
-
+        System.out.println("Resolve: " + this.getName());
         return this;
     }
 
@@ -266,17 +176,16 @@ public class MiniClass {
     }
 
     private void readFields() throws IOException {
-        fields = MiniMemberInfo.read(input);
+        fields = MiniMemberInfo.read(this, input);
     }
 
     private void readMethods() throws IOException {
-        methods = MiniMemberInfo.read(input);
+        methods = MiniMemberInfo.read(this, input);
 
         for (MiniMemberInfo method : methods) {
             for (int i = 0; i < method.attributesCount; i++) {
                 MiniAttributeInfo attribute = method.getAttributes()[i];
-                String attributeName = (String) MiniMetaSpace.constantPool.getConstant(attribute.getAttributeNameIndex());
-                if ("Code".equals(attributeName)) {
+                if ("Code".equals(attribute.getAttributeName())) {
                     MiniCodeAttribute codeAttribute = MiniCodeAttribute.read(attribute);
                     method.getAttributes()[i] = codeAttribute;
                 }
@@ -294,23 +203,35 @@ public class MiniClass {
         }
     }
 
+    public MiniMemberInfo getMethod(String name) {
+        return Arrays.stream(this.methods)
+                .filter(m -> m.getName().equals(name))
+                .findFirst().orElse(null);
+    }
+
     @Data
     public static class MiniMemberInfo {
+        private MiniClass clazz;
+
         private int accessFlags;
         private int nameIndex;
         private int descriptorIndex;
         private int attributesCount;
         private MiniAttributeInfo[] attributes;
 
+        public MiniMemberInfo(MiniClass clazz) {
+            this.clazz = clazz;
+        }
+
         public String getName() {
-            return (String) MiniMetaSpace.constantPool.getConstant(this.nameIndex);
+            return (String) MiniMetaSpace.getConstantPool(clazz).getConstant(this.nameIndex);
         }
 
         public String getDescriptor() {
-            return (String) MiniMetaSpace.constantPool.getConstant(this.descriptorIndex);
+            return (String) MiniMetaSpace.getConstantPool(clazz).getConstant(this.descriptorIndex);
         }
 
-        public static MiniMemberInfo[] read(DataInputStream input) throws IOException {
+        public static MiniMemberInfo[] read(MiniClass clazz, DataInputStream input) throws IOException {
             int membersCount = input.readUnsignedShort();
             MiniMemberInfo[] members = new MiniMemberInfo[membersCount];
             for (int i = 0; i < membersCount; i++) {
@@ -331,7 +252,7 @@ public class MiniClass {
                     byte[] info = new byte[attributeLength];
                     input.readFully(info);
 
-                    MiniAttributeInfo attribute = new MiniAttributeInfo();
+                    MiniAttributeInfo attribute = new MiniAttributeInfo(clazz);
                     attribute.setAttributeNameIndex(attributeNameIndex);
                     attribute.setAttributeLength(attributeLength);
                     attribute.setInfo(info);
@@ -339,7 +260,7 @@ public class MiniClass {
                     attributes[j] = attribute;
                 }
 
-                MiniMemberInfo member = new MiniMemberInfo();
+                MiniMemberInfo member = new MiniMemberInfo(clazz);
                 member.setAccessFlags(accessFlags);
                 member.setNameIndex(nameIndex);
                 member.setDescriptorIndex(descriptorIndex);
@@ -359,10 +280,19 @@ public class MiniClass {
 
     @Data
     public static class MiniAttributeInfo {
+        private MiniClass clazz;
+
         private int attributeNameIndex;
         private int attributeLength;
         private byte[] info;
 
+        public MiniAttributeInfo(MiniClass clazz) {
+            this.clazz = clazz;
+        }
+
+        public String getAttributeName() {
+            return (String) MiniMetaSpace.getConstantPool(clazz).getConstant(this.attributeNameIndex);
+        }
     }
 
     @Data
@@ -372,6 +302,10 @@ public class MiniClass {
         private int maxLocals;
         private int codeLength;
         private byte[] code;
+
+        public MiniCodeAttribute(MiniClass clazz) {
+            super(clazz);
+        }
 
         public static MiniCodeAttribute read(MiniAttributeInfo attribute) throws IOException {
             // 使用属性内容的字节数组单独解析Code属性
@@ -384,7 +318,7 @@ public class MiniClass {
             // 注意：这里还需要处理异常表和附加属性（这里简化示例）
             codeInput.close();
 
-            MiniCodeAttribute codeAttribute = new MiniCodeAttribute();
+            MiniCodeAttribute codeAttribute = new MiniCodeAttribute(attribute.getClazz());
             codeAttribute.setAttributeNameIndex(attribute.getAttributeNameIndex());
             codeAttribute.setAttributeLength(attribute.getAttributeLength());
             codeAttribute.setInfo(attribute.getInfo());
@@ -395,32 +329,6 @@ public class MiniClass {
             codeAttribute.setCode(code);
 
             return codeAttribute;
-        }
-    }
-
-    private Object getLeft(Object constant) {
-        if (constant instanceof String str) {
-            if (str.contains(":")) {
-                String[] parts = str.split(":");
-                return MiniMetaSpace.constantPool.getConstant(Integer.parseInt(parts[0]));
-            } else {
-                throw new IllegalArgumentException("constant must be String: " + str);
-            }
-        } else {
-            throw new IllegalArgumentException("constant must be String");
-        }
-    }
-
-    private Object getRight(Object constant) {
-        if (constant instanceof String str) {
-            if (str.contains(":")) {
-                String[] parts = str.split(":");
-                return MiniMetaSpace.constantPool.getConstant(Integer.parseInt(parts[1]));
-            } else {
-                throw new IllegalArgumentException("constant must be String: " + str);
-            }
-        } else {
-            throw new IllegalArgumentException("constant must be String");
         }
     }
 }

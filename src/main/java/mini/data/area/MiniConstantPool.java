@@ -51,16 +51,10 @@ public class MiniConstantPool {
     }
 
     public Object getConstant(int index) {
-        if (index < 1 || index >= constantPool.length) {
-            throw new IndexOutOfBoundsException("Invalid constant pool index: " + index);
-        }
         return constantPool[index];
     }
 
     public void setConstant(int index, Object value) {
-        if (index < 1 || index >= constantPool.length) {
-            throw new IndexOutOfBoundsException("Invalid constant pool index: " + index);
-        }
         constantPool[index] = value;
     }
 

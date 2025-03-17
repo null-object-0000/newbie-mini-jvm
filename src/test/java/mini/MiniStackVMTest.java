@@ -1,18 +1,14 @@
 package mini;
 
 import demo.HelloStackVM;
-import org.junit.jupiter.api.BeforeEach;
+import mini.cl.MiniStackFrame;
 import org.junit.jupiter.api.Test;
+
+import java.util.HashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class MiniStackVMTest {
-
-    @BeforeEach
-    public void setUp() {
-        // 清空局部变量表和栈
-        MiniStackVM.INSTANCE.reset();
-    }
 
     /**
      * 测试执行一段简单的字节码指令
@@ -37,16 +33,17 @@ public class MiniStackVMTest {
                 "return"
         };
 
+        MiniStackFrame stackFrame = new MiniStackFrame(null, "main", new HashMap<>());
         int pc = 0;
         for (String instruction : instructions) {
-            MiniStackVM.INSTANCE.execute(null, pc++, instruction);
+            MiniStackVM.INSTANCE.execute(stackFrame, pc++, instruction);
         }
     }
 
     @Test
     public void full() {
         String[] instructions = {
-                "bipush",
+                "bipush 10",
                 "putstatic",
                 "iconst_5",
                 "getstatic",
@@ -59,9 +56,10 @@ public class MiniStackVMTest {
                 "return",
         };
 
+        MiniStackFrame stackFrame = new MiniStackFrame(null, "main", new HashMap<>());
         int pc = 0;
         for (String instruction : instructions) {
-            MiniStackVM.INSTANCE.execute(null, pc++, instruction);
+            MiniStackVM.INSTANCE.execute(stackFrame, pc++, instruction);
         }
     }
 }

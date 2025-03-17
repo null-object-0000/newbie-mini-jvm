@@ -13,13 +13,13 @@ import java.io.IOException;
 public final class MiniApplicationClassLoader extends MiniClassLoader {
 
     public MiniApplicationClassLoader() {
-        super(new MiniExtensionClassLoader(null));
+        super(null);
     }
 
     @Override
     public MiniClass loadClass(String className) throws IOException {
         // 双亲委派，优先找上一层级的类加载器尝试记载
-        MiniClass clazz = super.getParent().loadClass(className);
+        MiniClass clazz = MiniMetaSpace.EXT_CLASS_LOADER.loadClass(className);
         if (clazz != null) return clazz;
 
         className = className.replace(".", "/")

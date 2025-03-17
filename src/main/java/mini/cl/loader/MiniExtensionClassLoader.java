@@ -9,7 +9,7 @@ import java.io.IOException;
  */
 public final class MiniExtensionClassLoader extends MiniClassLoader {
 
-    public MiniExtensionClassLoader(MiniClassLoader parent) {
+    public MiniExtensionClassLoader() {
         super(null);
     }
 

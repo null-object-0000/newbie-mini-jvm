@@ -12,7 +12,7 @@ public class MiniBootstrapClassLoaderTest {
 
     @Test
     public void loadClass() throws IOException {
-        MiniClass clazz = MiniMetaSpace.APPLICATION_CLASS_LOADER.loadClass("demo.HelloStackVM");
+        MiniClass clazz = MiniMetaSpace.APP_CLASS_LOADER.loadClass("demo.HelloStackVM");
         // 验证类名
         assertEquals("demo.HelloStackVM", clazz.getName());
         assertEquals(15, (Integer) clazz.getStaticVariables().get("k"));

@@ -3,6 +3,7 @@ package mini.cl;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import mini.cl.loader.MiniClassLoader;
 import mini.data.area.MiniConstantPool;
 import mini.data.area.MiniMetaSpace;
 

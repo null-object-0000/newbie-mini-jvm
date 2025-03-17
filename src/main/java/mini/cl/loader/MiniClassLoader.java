@@ -1,29 +1,25 @@
-package mini.cl;
+package mini.cl.loader;
 
-import cn.hutool.core.io.FileUtil;
-import cn.hutool.system.SystemUtil;
-import mini.data.area.MiniMetaSpace;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import mini.cl.MethodCaller;
+import mini.cl.MiniClass;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.util.HashMap;
 
-public class MiniBootstrapClassLoader {
-    public static MiniClass loadClass(String className) throws IOException {
-        className = className.replace(".", "/")
-                .replace("\\", "/");
+@Getter
+@AllArgsConstructor
+public abstract class MiniClassLoader {
+    private MiniClassLoader parent;
 
-        /* TODO
-            JVM 在判定两个 class 是否相同时，不仅要判断两个类名是否相同，而且要判断是否由同一个类加载器实例加载的。
-            只有两者同时满足的情况下，JVM 才认为这两个 class 是相同的。
-         */
-        if (MiniMetaSpace.CLASS_CACHE.containsKey(className)) {
-            return MiniMetaSpace.CLASS_CACHE.get(className);
-        }
+    public abstract MiniClass loadClass(String className) throws IOException;
 
+    public MiniClass defineClass(byte[] classData) throws IOException {
         // 第一阶段：加载 Loading
-        MiniClass clazz = _load(className);
+        MiniClass clazz = _load(classData);
 
         // 第二阶段：链接 Linking
         // 1. 验证 Verify
@@ -36,7 +32,6 @@ public class MiniBootstrapClassLoader {
         // 第三阶段：初始化 Initialization
         _initialization(clazz);
 
-        MiniMetaSpace.CLASS_CACHE.put(className, clazz);
         return clazz;
     }
 
@@ -45,9 +40,7 @@ public class MiniBootstrapClassLoader {
      * 2. 将字节流所代表的静态存储结构转换为方法区的运行时数据结构。
      * 3. 在内存中生成一个代表该类的 Class 对象，作为方法区这些数据的访问入口。
      */
-    private static MiniClass _load(String className) {
-        String fileName = className + ".class";
-        byte[] classData = FileUtil.readBytes(SystemUtil.getUserInfo().getCurrentDir() + "\\src\\main\\java\\" + fileName);
+    private static MiniClass _load(byte[] classData) {
         DataInputStream input = new DataInputStream(new ByteArrayInputStream(classData));
         return new MiniClass(input);
     }
@@ -58,6 +51,4 @@ public class MiniBootstrapClassLoader {
         if (clinit == null) return;
         MethodCaller.call(clazz, clinit, new HashMap<>());
     }
-
-
 }

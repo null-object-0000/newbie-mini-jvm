@@ -1,6 +1,7 @@
 package mini.data.area;
 
 import mini.cl.MiniClass;
+import mini.cl.loader.MiniApplicationClassLoader;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -20,4 +21,6 @@ public class MiniMetaSpace {
     public static void putConstantPool(MiniClass clazz, MiniConstantPool pool) {
         constantPool.put(clazz, pool);
     }
+
+    public final static MiniApplicationClassLoader APPLICATION_CLASS_LOADER = new MiniApplicationClassLoader();
 }

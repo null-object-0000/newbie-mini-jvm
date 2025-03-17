@@ -1,9 +1,9 @@
 package mini;
 
 import mini.cl.MethodCaller;
-import mini.cl.MiniBootstrapClassLoader;
 import mini.cl.MiniClass;
 import mini.cl.MiniStackFrame;
+import mini.data.area.MiniMetaSpace;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -205,7 +205,7 @@ public class MiniStackVM {
             String methodName = instruction.split(" ")[1].split("[.]")[1];
             String paramsAndReturnType = instruction.split(" ")[2];
 
-            MiniClass clazz = MiniBootstrapClassLoader.loadClass(className);
+            MiniClass clazz = MiniMetaSpace.APPLICATION_CLASS_LOADER.loadClass(className);
             MiniClass.MiniMemberInfo method = clazz.getMethod(methodName);
 
             // 解析参数和返回值类型，eg: (II)I

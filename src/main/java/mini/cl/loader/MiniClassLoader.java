@@ -40,9 +40,15 @@ public abstract class MiniClassLoader {
      * 2. 将字节流所代表的静态存储结构转换为方法区的运行时数据结构。
      * 3. 在内存中生成一个代表该类的 Class 对象，作为方法区这些数据的访问入口。
      */
-    private static MiniClass _load(byte[] classData) {
+    private static MiniClass _load(byte[] classData) throws IOException {
         DataInputStream input = new DataInputStream(new ByteArrayInputStream(classData));
-        return new MiniClass(input);
+        MiniClass clazz = new MiniClass(input);
+
+        // 检查是否存在父类，如果存在就先加载父类
+        clazz._loading_loadSuperClass();
+        clazz.getSuperClass();
+
+        return clazz;
     }
 
     private static void _initialization(MiniClass clazz) {

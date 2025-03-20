@@ -4,7 +4,7 @@ import cn.hutool.core.io.FileUtil;
 import cn.hutool.system.SystemUtil;
 import mini.cl.MethodCaller;
 import mini.cl.MiniClass;
-import mini.data.area.MiniMetaSpace;
+import mini.data.area.MiniVirtualMachineMemory;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -29,8 +29,8 @@ public class MiniBootstrapClassLoader {
             JVM 在判定两个 class 是否相同时，不仅要判断两个类名是否相同，而且要判断是否由同一个类加载器实例加载的。
             只有两者同时满足的情况下，JVM 才认为这两个 class 是相同的。
          */
-        if (MiniMetaSpace.CLASS_CACHE.containsKey(className)) {
-            return MiniMetaSpace.CLASS_CACHE.get(className);
+        if (MiniVirtualMachineMemory.METHOD_AREA.CLASS_CACHE.containsKey(className)) {
+            return MiniVirtualMachineMemory.METHOD_AREA.CLASS_CACHE.get(className);
         }
 
         // 第一阶段：加载 Loading
@@ -47,7 +47,7 @@ public class MiniBootstrapClassLoader {
         // 第三阶段：初始化 Initialization
         _initialization(clazz);
 
-        MiniMetaSpace.CLASS_CACHE.put(className, clazz);
+        MiniVirtualMachineMemory.METHOD_AREA.CLASS_CACHE.put(className, clazz);
         return clazz;
     }
 
@@ -56,11 +56,17 @@ public class MiniBootstrapClassLoader {
      * 2. 将字节流所代表的静态存储结构转换为方法区的运行时数据结构。
      * 3. 在内存中生成一个代表该类的 Class 对象，作为方法区这些数据的访问入口。
      */
-    private static MiniClass _load(String className) {
+    private static MiniClass _load(String className) throws IOException {
         String fileName = className + ".class";
         byte[] classData = FileUtil.readBytes(SystemUtil.getUserInfo().getCurrentDir() + "\\src\\main\\java\\" + fileName);
         DataInputStream input = new DataInputStream(new ByteArrayInputStream(classData));
-        return new MiniClass(input);
+        MiniClass clazz = new MiniClass(input);
+
+        // 检查是否存在父类，如果存在就先加载父类
+        clazz._loading_loadSuperClass();
+        clazz.getSuperClass();
+
+        return clazz;
     }
 
     private static void _initialization(MiniClass clazz) {

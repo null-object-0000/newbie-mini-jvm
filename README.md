@@ -86,10 +86,10 @@ Java 源码的关系：
 
 #### 基于栈的虚拟机
 
-接下来我们来实现一个可以执行字节码指令的虚拟机，源码见：[MiniStackVM.java](./src/main/java/mini/MiniStackVM.java)
+接下来我们来实现一个可以执行字节码指令的虚拟机，源码见：[MiniExecutionEngine.java](./src/main/java/mini/MiniExecutionEngine.java)
 
 另外我们还在单元测试中模拟了 `HelloStackVM` 类的 `main`
-方法的字节码指令集，来验证我们实现的虚拟机是否正确。源码见：[MiniStackVMTest.java](./src/test/java/mini/MiniStackVMTest.java)
+方法的字节码指令集，来验证我们实现的虚拟机是否正确。源码见：[MiniExecutionEngine.java](./src/test/java/mini/MiniExecutionEngine.java)
 
 ## 二、类加载器
 

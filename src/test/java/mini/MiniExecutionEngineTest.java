@@ -6,9 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 
-import static org.junit.jupiter.api.Assertions.*;
-
-public class MiniStackVMTest {
+public class MiniExecutionEngineTest {
 
     /**
      * 测试执行一段简单的字节码指令
@@ -36,7 +34,7 @@ public class MiniStackVMTest {
         MiniStackFrame stackFrame = new MiniStackFrame(null, "main", new HashMap<>());
         int pc = 0;
         for (String instruction : instructions) {
-            MiniStackVM.INSTANCE.execute(stackFrame, pc++, instruction);
+            MiniExecutionEngine.INSTANCE.execute(stackFrame, pc++, instruction);
         }
     }
 
@@ -59,7 +57,7 @@ public class MiniStackVMTest {
         MiniStackFrame stackFrame = new MiniStackFrame(null, "main", new HashMap<>());
         int pc = 0;
         for (String instruction : instructions) {
-            MiniStackVM.INSTANCE.execute(stackFrame, pc++, instruction);
+            MiniExecutionEngine.INSTANCE.execute(stackFrame, pc++, instruction);
         }
     }
 }

@@ -5,7 +5,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import mini.cl.loader.MiniClassLoader;
 import mini.data.area.MiniConstantPool;
-import mini.data.area.MiniMetaSpace;
+import mini.data.area.MiniVirtualMachineMemory;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -66,24 +66,55 @@ public class MiniClass {
     }
 
     public String getName() {
-        String name = (String) MiniMetaSpace.getConstantPool(this).getConstant((Integer) MiniMetaSpace.getConstantPool(this).getConstant(thisClass));
+        String name = (String) MiniVirtualMachineMemory.METHOD_AREA.getConstantPool(this).getConstant((Integer) MiniVirtualMachineMemory.METHOD_AREA.getConstantPool(this).getConstant(thisClass));
         return name.replace("/", "."); // 替换斜杠为点
     }
 
-    public MiniClass getSuperClass() {
-        String name = (String) MiniMetaSpace.getConstantPool(this).getConstant((Integer) MiniMetaSpace.getConstantPool(this).getConstant(superClass));
-        // TODO: 基于 MiniBootstrapClassLoader 通过类名获取类对象
-        return null;
+    public MiniClass getSuperClass() throws IOException {
+        String superClassName = (String) MiniVirtualMachineMemory.METHOD_AREA.getConstantPool(this).getConstant((Integer) MiniVirtualMachineMemory.METHOD_AREA.getConstantPool(this).getConstant(superClass));
+        superClassName = superClassName
+                .replace("java/lang/", "demo/java/lang/Mini")
+                .replace("java/io/", "demo/java/io/Mini")
+                .replace("/", ".");
+
+        if (this.getName().equals(superClassName)) {
+            return null;
+        }
+
+        return MiniVirtualMachineMemory.METHOD_AREA.APP_CLASS_LOADER.loadClass(superClassName);
     }
 
     public MiniClass[] getInterfaces() {
         MiniClass[] interfaceClasses = new MiniClass[interfaces.length];
         for (int i = 0; i < interfaces.length; i++) {
-            String interfaceName = (String) MiniMetaSpace.getConstantPool(this).getConstant(interfaces[i]);
+            String interfaceName = (String) MiniVirtualMachineMemory.METHOD_AREA.getConstantPool(this).getConstant(interfaces[i]);
             // TODO: 基于 MiniBootstrapClassLoader 通过类名获取类对象
             interfaceClasses[i] = null;
         }
         return interfaceClasses;
+    }
+
+    /**
+     * 在加载阶段提前读取父类信息
+     */
+    public MiniClass _loading_loadSuperClass() throws IOException {
+        this.readAndCheckMagic();
+        this.readAndCheckVersion();
+
+        // 读取常量池
+        MiniVirtualMachineMemory.METHOD_AREA.putConstantPool(this, MiniConstantPool.read(input));
+
+        // 读取访问标志
+        this.accessFlags = input.readUnsignedShort();
+
+        // 读取当前类的索引
+        this.thisClass = input.readUnsignedShort();
+        // 读取父类的索引
+        this.superClass = input.readUnsignedShort();
+
+        input.reset();
+
+        return this;
     }
 
     /**
@@ -100,7 +131,7 @@ public class MiniClass {
         this.readAndCheckVersion();
 
         // 读取常量池
-        MiniMetaSpace.putConstantPool(this, MiniConstantPool.read(input));
+        MiniVirtualMachineMemory.METHOD_AREA.putConstantPool(this, MiniConstantPool.read(input));
 
         // 读取访问标志
         this.accessFlags = input.readUnsignedShort();
@@ -138,14 +169,14 @@ public class MiniClass {
             int accessFlags = field.getAccessFlags();
             if ((accessFlags & 0x0008) != 0) {
                 String descriptor = field.getDescriptor();
-                switch (descriptor) {
-                    case "I":
-                        System.out.println("    " + field.getName() + " = 0");
-                        this.staticVariables.put(field.getName(), 0);
-                        break;
-                    default:
-                        System.err.println("Warning: Unrecognized field descriptor: " + descriptor);
-                        break;
+                if (descriptor.equals("I")) {
+                    System.out.println("    " + field.getName() + " = 0");
+                    this.staticVariables.put(field.getName(), 0);
+                } else if (descriptor.startsWith("L")) {
+                    String className = descriptor.substring(1, descriptor.length() - 1);
+                    System.out.println("    " + field.getName() + " = " + className);
+                } else {
+                    System.err.println("Warning: Unrecognized field descriptor: " + descriptor);
                 }
             }
         }
@@ -210,6 +241,29 @@ public class MiniClass {
                 .findFirst().orElse(null);
     }
 
+    public int getInstanceSize() {
+        // 计算实例大小
+        int size = 0;
+        for (MiniMemberInfo field : fields) {
+            // 判断是否是静态变量，是的话跳过
+            if ((field.getAccessFlags() & 0x0008) != 0) continue;
+
+            String descriptor = field.getDescriptor();
+            if (descriptor.equals("I")) {
+                size += 4; // int 占用 4 字节
+            } else if (descriptor.startsWith("L")) {
+                size += 8; // 对象引用占用 8 字节
+            } else if (descriptor.equals("Z")) {
+                size += 1; // boolean 占用 1 字节
+            } else if (descriptor.equals("C")) {
+                size += 2; // char 占用 2 字节
+            } else {
+                System.err.println("Warning: Unrecognized field descriptor: " + descriptor);
+            }
+        }
+        return size;
+    }
+
     @Data
     public static class MiniMemberInfo {
         private MiniClass clazz;
@@ -225,11 +279,11 @@ public class MiniClass {
         }
 
         public String getName() {
-            return (String) MiniMetaSpace.getConstantPool(clazz).getConstant(this.nameIndex);
+            return (String) MiniVirtualMachineMemory.METHOD_AREA.getConstantPool(clazz).getConstant(this.nameIndex);
         }
 
         public String getDescriptor() {
-            return (String) MiniMetaSpace.getConstantPool(clazz).getConstant(this.descriptorIndex);
+            return (String) MiniVirtualMachineMemory.METHOD_AREA.getConstantPool(clazz).getConstant(this.descriptorIndex);
         }
 
         public static MiniMemberInfo[] read(MiniClass clazz, DataInputStream input) throws IOException {
@@ -292,7 +346,7 @@ public class MiniClass {
         }
 
         public String getAttributeName() {
-            return (String) MiniMetaSpace.getConstantPool(clazz).getConstant(this.attributeNameIndex);
+            return (String) MiniVirtualMachineMemory.METHOD_AREA.getConstantPool(clazz).getConstant(this.attributeNameIndex);
         }
     }
 
